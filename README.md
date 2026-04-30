@@ -14,6 +14,7 @@ This package provides a subclass of
 which
 
 - allows async functions, context managers, and async context managers to be hooks
+- supports `firstresult=True` for async hooks
 - and accepts plugin factories in addition to plugin instances for registration.
 
 ---
@@ -30,6 +31,7 @@ which
   - [Create a plugin manager and register plugins](#create-a-plugin-manager-and-register-plugins)
   - [Call hooks](#call-hooks)
     - [Async function](#async-function)
+      - [firstresult=True](#firstresulttrue)
     - [Context manager](#context-manager)
     - [Async context manager](#async-context-manager)
 - [Links](#links)
@@ -206,6 +208,39 @@ The following example shows how to call hooks.
 inside Plugin_2.afunc()
 inside Plugin_1.afunc()
 [-1, 3]
+
+```
+
+##### firstresult=True
+
+When the hookspec is defined with `firstresult=True`, `ahook` returns the
+first non-`None` result instead of a list. Implementations are awaited
+sequentially in pluggy's standard execution order (reverse registration order,
+with `tryfirst` and `trylast` modifiers respected) and the chain stops at the
+first non-`None` return value. This is unlike the default behavior, where all
+implementations are gathered concurrently.
+
+```python
+>>> class SpecFR:
+...     @hookspec(firstresult=True)
+...     async def afunc_first(self, arg1, arg2):
+...         pass
+
+>>> class Plugin_FR:
+...     @hookimpl
+...     async def afunc_first(self, arg1, arg2):
+...         return arg1 + arg2
+
+>>> pm_fr = pluggy.PluginManager('project')
+>>> pm_fr.add_hookspecs(SpecFR)
+>>> _ = pm_fr.register(Plugin_FR())
+
+>>> async def call_afunc_first():
+...     result = await pm_fr.ahook.afunc_first(arg1=1, arg2=2)
+...     print(result)
+
+>>> asyncio.run(call_afunc_first())
+3
 
 ```
 
